@@ -1,6 +1,5 @@
 import os
 import FreeCAD
-import keyring
 from PySide2 import QtWidgets
 from .Settings import SettingsManager
 
@@ -19,7 +18,7 @@ class SettingsPanelWidget:
         # --- OpenAI API Key ---
         layout.addRow(QtWidgets.QLabel("<b>OpenAI Settings</b>"))
         key_layout = self._add_api_key_input(layout, "API Key:", "openai_gpt-4o", 
-            "Enter your OpenAI API key. Will be stored securely.")
+            "Enter your OpenAI API key.")
         self._add_test_button(key_layout, "openai_gpt-4o")
         self._add_generic_setting_input(layout, "Model:", "OpenAIModel", "gpt-4",
             "Select OpenAI model (e.g. gpt-4, gpt-3.5-turbo)")
@@ -27,7 +26,7 @@ class SettingsPanelWidget:
         # --- Google Gemini API Key ---
         layout.addRow(QtWidgets.QLabel("<b>Google Gemini Settings</b>"))
         key_layout = self._add_api_key_input(layout, "API Key:", "gemini_pro", 
-            "Enter your Google Gemini API key. Will be stored securely.")
+            "Enter your Google Gemini API key.")
         self._add_test_button(key_layout, "gemini_pro")
         self._add_generic_setting_input(layout, "Model:", "GeminiModel", "gemini-pro",
             "Select Google Gemini model (e.g. gemini-pro, gemini-lite)")
@@ -43,17 +42,16 @@ class SettingsPanelWidget:
         layout.addItem(QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding))
 
     def _add_api_key_input(self, layout, label, setting_key, tooltip=""):
-        """Helper to add API key input fields with secure storage."""
+        """Helper to add API key input fields."""
         row_layout = QtWidgets.QHBoxLayout()
         
         input_field = QtWidgets.QLineEdit()
-        input_field.setEchoMode(QtWidgets.QLineEdit.Password)
         input_field.setToolTip(tooltip)
         
-        # Get key from keyring instead of settings
-        stored_key = keyring.get_password("freecad_aicad", setting_key)
-        if stored_key:
-            input_field.setText(stored_key)
+        # Get key directly from settings
+        current_key = self.settings_manager.get_setting(setting_key)
+        if current_key:
+            input_field.setText(current_key)
         
         status_label = QtWidgets.QLabel()
         status_label.setFixedWidth(20)
@@ -63,7 +61,7 @@ class SettingsPanelWidget:
         row_layout.addWidget(status_label)
         
         layout.addRow(QtWidgets.QLabel(label), row_layout)
-        self.widgets_to_save.append((setting_key, input_field, "api_key"))
+        self.widgets_to_save.append((setting_key, input_field, "generic"))
         
         return row_layout
 
@@ -87,7 +85,7 @@ class SettingsPanelWidget:
         try:
             # Get the current input value
             for key, field, type_ in self.widgets_to_save:
-                if key == api_key_id and type_ == "api_key":
+                if key == api_key_id and type_ == "generic":
                     api_key = field.text()
                     break
             
@@ -114,14 +112,74 @@ class SettingsPanelWidget:
             if tooltip:
                 status_label.setToolTip(tooltip)
 
-    def save_settings(self):
-        """Save all settings with secure storage for API keys."""
-        for setting_key, input_field, type_ in self.widgets_to_save:
-            value = input_field.text()
-            if type_ == "api_key":
-                if value:  # Only store if value is provided
-                    keyring.set_password("freecad_aicad", setting_key, value)
+    def _test_specific_api(self, api_key_id, api_key):
+        """Test connection with specific LLM API."""
+        import requests
+        from .constants import LLM_CONFIGS, API_ENDPOINTS
+        
+        config = LLM_CONFIGS.get(api_key_id)
+        if not config:
+            raise ValueError(f"Unknown API type: {api_key_id}")
+            
+        try:
+            # Add connection test result tracking for unit tests
+            self._last_test_result = False
+            
+            if config['type'] == 'openai':
+                response = requests.get(
+                    'https://api.openai.com/v1/models',
+                    headers={'Authorization': f'Bearer {api_key}'},
+                    timeout=5
+                )
+                self._last_test_result = response.status_code == 200
+                return self._last_test_result
+                
+            elif config['type'] == 'gemini':
+                # Google requires API key in URL
+                model = self.settings_manager.get_setting("GeminiModel", "gemini-pro")
+                url = API_ENDPOINTS['gemini'].format(model=model)
+                response = requests.get(
+                    f"{url}?key={api_key}",
+                    timeout=5
+                )
+                self._last_test_result = response.status_code == 200
+                return self._last_test_result
+                
+            elif config['type'] == 'ollama':
+                base_url = self.settings_manager.get_setting("OllamaBaseURL", "http://localhost:11434")
+                response = requests.get(
+                    f"{base_url}/api/tags",
+                    timeout=5
+                )
+                self._last_test_result = response.status_code == 200
+                return self._last_test_result
+                
             else:
+                self._last_test_result = True  # For mock LLM, always return success
+                return self._last_test_result
+                
+        except requests.RequestException as e:
+            FreeCAD.Console.PrintError(f"API test failed: {str(e)}\n")
+            self._last_test_result = False
+            return False
+
+    # Add helper methods for testing
+    def get_last_test_result(self):
+        """Get the result of the last API test (for unit testing)"""
+        return getattr(self, '_last_test_result', None)
+        
+    def get_input_field(self, setting_key):
+        """Get an input field by setting key (for unit testing)"""
+        for key, field, _ in self.widgets_to_save:
+            if key == setting_key:
+                return field
+        return None
+
+    def save_settings(self):
+        """Save all settings directly."""
+        for setting_key, input_field, _ in self.widgets_to_save:
+            value = input_field.text()
+            if value:  # Only store if value is provided
                 self.settings_manager.set_setting(setting_key, value)
         
         FreeCAD.Console.PrintMessage("Settings saved successfully\n")
