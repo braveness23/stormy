@@ -110,22 +110,11 @@ class SettingsPanelWidget:
 
 
 class PromptEngine:
+    """Manages prompt generation and processing for AI interactions."""
+    
     def __init__(self):
-        pass
+        self.settings_manager = SettingsManager()
 
     def get_system_prompt(self, llm_id):
-        """Returns the appropriate system prompt based on LLM type"""
-        base_prompt = """You are a CAD assistant specialized in FreeCAD's Python API.
-Generate only valid Python code that creates 3D models using FreeCAD's API.
-Your code should:
-- Use proper error handling
-- Follow FreeCAD best practices
-- Be well-commented
-- Be concise but clear
-- Handle document creation/activation
-- Include view operations when appropriate"""
-
-        if llm_id == "mockllm":
-            return base_prompt + "\nNote: This is a test environment."
-        
-        return base_prompt
+        """Returns the appropriate system prompt based on LLM type."""
+        return self.settings_manager.get_system_prompt(llm_id)

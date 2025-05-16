@@ -6,9 +6,47 @@ import Part
 import Draft
 import Sketcher
 import math # Often useful
+import signal
+from .constants import SCRIPT_EXECUTION_TIMEOUT, ALLOWED_MODULES, BLOCKED_BUILTINS, ERRORS
 
 class CodeExecutor:
+    """Executes FreeCAD Python scripts with security measures and timeout protection."""
+    
+    def __init__(self):
+        """Initialize the code executor with security measures."""
+        self._setup_sandbox()
+
+    def _setup_sandbox(self):
+        """Configure the restricted execution environment."""
+        self.safe_builtins = dict(__builtins__)
+        for func in BLOCKED_BUILTINS:
+            if func in self.safe_builtins:
+                del self.safe_builtins[func]
+
+    def _validate_script(self, script):
+        """Validate script doesn't import unauthorized modules."""
+        import ast
+        try:
+            tree = ast.parse(script)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for name in node.names:
+                        module = name.name.split('.')[0]
+                        if module not in ALLOWED_MODULES:
+                            return False, ERRORS['invalid_module'].format(module)
+                elif isinstance(node, ast.ImportFrom):
+                    if node.module.split('.')[0] not in ALLOWED_MODULES:
+                        return False, ERRORS['invalid_module'].format(node.module)
+            return True, ""
+        except SyntaxError as e:
+            return False, f"Syntax error in script: {str(e)}"
+
+    def _timeout_handler(self, signum, frame):
+        """Handle script execution timeout."""
+        raise TimeoutError(ERRORS['execution_timeout'].format(SCRIPT_EXECUTION_TIMEOUT))
+
     def execute_script(self, script_string):
+        """Execute a FreeCAD script with security measures and timeout protection."""
         log_output = []
         doc = FreeCAD.ActiveDocument
 
@@ -24,6 +62,16 @@ class CodeExecutor:
                 FreeCAD.Console.PrintError(f"Document creation error: {str(e)}\n")
                 return False, "\n".join(log_output)
         
+        # Validate script first
+        is_valid, validation_msg = self._validate_script(script_string)
+        if not is_valid:
+            log_output.append(validation_msg)
+            return False, "\n".join(log_output)
+
+        # Set up timeout
+        signal.signal(signal.SIGALRM, self._timeout_handler)
+        signal.alarm(SCRIPT_EXECUTION_TIMEOUT)
+
         # Make common modules and the active document available to the executed script
         # This creates a controlled global scope for the exec call.
         script_globals = {
@@ -35,12 +83,9 @@ class CodeExecutor:
             "Sketcher": Sketcher,
             "math": math,
             "doc": doc, # Provide current document
-            # You can add more standard modules here if commonly needed
+            "__builtins__": self.safe_builtins
         }
 
-        # Store original stdout/stderr and redirect for capturing script output (Advanced)
-        # For simplicity in this initial version, we'll rely on FreeCAD's console.
-        
         transaction_name = "AI Generated Script"
         if doc:
             doc.openTransaction(transaction_name) # Start transaction for undo
@@ -56,6 +101,12 @@ class CodeExecutor:
                 FreeCAD.Console.PrintMessage("Document recomputed.\n")
             log_output.append("Script executed successfully (preliminary).")
 
+        except TimeoutError as e:
+            log_output.append(str(e))
+            if doc and doc.isTransactionActive():
+                doc.abortTransaction()
+                FreeCAD.Console.PrintMessage("Transaction aborted due to timeout.\n")
+            return False, "\n".join(log_output)
         except Exception as e:
             log_output.append(f"Error during script execution: {str(e)}")
             FreeCAD.Console.PrintError(f"Script Execution Error: {str(e)}\n")
@@ -65,10 +116,10 @@ class CodeExecutor:
             return False, "\n".join(log_output)
         
         finally:
+            signal.alarm(0)  # Disable alarm
             if doc and doc.isTransactionActive():
                 doc.commitTransaction()
                 FreeCAD.Console.PrintMessage("Transaction committed.\n")
-            # Restore stdout/stderr if redirected
 
         # Attempt to fit the view after execution
         try:

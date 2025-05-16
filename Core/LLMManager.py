@@ -1,10 +1,8 @@
 # AIFreeCADWorkbench/Core/LLMManager.py
 import FreeCAD
-# For real LLMs, you would import their respective libraries
-# import openai
-# import google.generativeai as genai
-# import requests # For Ollama or custom APIs
-# import json
+import requests
+import json
+from .constants import LLM_CONFIGS, API_ENDPOINTS
 
 class LLMManager:
     def __init__(self, settings_manager):
@@ -27,19 +25,93 @@ class LLMManager:
             return f"Error: Found a code block for {llm_id} but it might not be Python."
         return response_text # Assume the whole response is code if no backticks
 
+    def _make_api_request(self, llm_id, endpoint, headers, data):
+        """Make API request with proper error handling and timeout"""
+        timeout = LLM_CONFIGS[llm_id]['timeout']
+        try:
+            response = requests.post(endpoint, headers=headers, json=data, timeout=timeout)
+            response.raise_for_status()
+            return response.json()
+        except requests.Timeout:
+            raise TimeoutError(f"Request to {llm_id} timed out after {timeout} seconds")
+        except requests.RequestException as e:
+            raise ConnectionError(f"API request failed: {str(e)}")
+
+    def _handle_openai(self, llm_id, system_prompt, user_prompt):
+        api_key = self.settings_manager.get_api_key(llm_id)
+        model = self.settings_manager.get_setting("OpenAIModel", "gpt-4")
+        
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+        }
+        
+        response = self._make_api_request(
+            llm_id, 
+            API_ENDPOINTS['openai'],
+            headers,
+            data
+        )
+        return response['choices'][0]['message']['content']
+
+    def _handle_gemini(self, llm_id, system_prompt, user_prompt):
+        api_key = self.settings_manager.get_api_key(llm_id)
+        model = self.settings_manager.get_setting("GeminiModel", "gemini-pro")
+        
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "model": model,
+            "system": system_prompt,
+            "prompt": user_prompt
+        }
+        
+        response = self._make_api_request(
+            llm_id, 
+            API_ENDPOINTS['gemini'],
+            headers,
+            data
+        )
+        return response['response']
+
+    def _handle_ollama(self, llm_id, system_prompt, user_prompt):
+        base_url = self.settings_manager.get_setting("OllamaBaseURL", "http://localhost:11434")
+        model_name = self.settings_manager.get_setting("OllamaModelName", "llama3")
+        
+        data = {
+            "model": model_name,
+            "system": system_prompt,
+            "prompt": user_prompt,
+            "stream": False
+        }
+        
+        response = self._make_api_request(
+            llm_id, 
+            f"{base_url}/api/generate",
+            {},
+            data
+        )
+        return response.get("response", "")
 
     def send_prompt(self, llm_id, user_prompt, system_prompt):
-        FreeCAD.Console.PrintMessage(f"LLMManager: Sending to {llm_id}. System Prompt: {system_prompt[:100]}...\nUser Prompt: {user_prompt}\n")
-        
-        api_key = self.settings_manager.get_api_key(llm_id) # Fetches from FreeCAD params
-
-        if llm_id == "mockllm":
-            # Simulate a delay and return a fixed script
-            # import time
-            # time.sleep(1) # Simulate network delay
-            FreeCAD.Console.PrintMessage("MockLLM generating response...\n")
-            if "sphere" in user_prompt.lower():
-                return """import Part
+        """Main method to send prompts to various LLMs"""
+        try:
+            if llm_id == "mockllm":
+                # Simulate a delay and return a fixed script
+                FreeCAD.Console.PrintMessage("MockLLM generating response...\n")
+                if "sphere" in user_prompt.lower():
+                    return """import Part
 import FreeCAD as App
 
 doc = App.ActiveDocument
@@ -53,8 +125,8 @@ doc.recompute()
 App.ActiveDocument.ActiveView.viewAxometric()
 Gui.SendMsgToActiveView("ViewFit")
 """
-            else: # Default to a cube
-                return """import Part
+                else: # Default to a cube
+                    return """import Part
 import FreeCAD as App
 
 doc = App.ActiveDocument
@@ -69,64 +141,21 @@ App.ActiveDocument.ActiveView.viewTop()
 Gui.SendMsgToActiveView("ViewFit")
 """
 
-        elif llm_id == "gemini pro" or llm_id == "gemini-pro": # Example using gemini-pro
-            # Placeholder - Implement actual Google Gemini API call here
-            # try:
-            #     if not api_key or api_key == "YOUR_API_KEY_HERE":
-            #         return "Error: Gemini API Key not configured in Preferences."
-            #     genai.configure(api_key=api_key)
-            #     model = genai.GenerativeModel('gemini-pro')
-            #     full_prompt = f"{system_prompt}\n\nUser Request:\n{user_prompt}"
-            #     response = model.generate_content(full_prompt)
-            #     return self._extract_code_from_response(response.text, "gemini")
-            # except Exception as e:
-            #     FreeCAD.Console.PrintError(f"Gemini API Error: {str(e)}\n")
-            #     return f"Error: Gemini API call failed: {str(e)}"
-            return "Error: Gemini Pro (Placeholder) not fully implemented yet."
+            config = LLM_CONFIGS.get(llm_id)
+            if not config:
+                return f"Error: Unknown LLM ID '{llm_id}'"
 
-        elif llm_id == "openai gpt-4o" or llm_id == "openai-gpt-4o":
-            # Placeholder - Implement actual OpenAI API call here
-            # try:
-            #     if not api_key or api_key == "YOUR_API_KEY_HERE":
-            #         return "Error: OpenAI API Key not configured in Preferences."
-            #     client = openai.OpenAI(api_key=api_key)
-            #     completion = client.chat.completions.create(
-            #         model="gpt-4o", # Or your preferred model
-            #         messages=[
-            #             {"role": "system", "content": system_prompt},
-            #             {"role": "user", "content": user_prompt}
-            #         ]
-            #     )
-            #     return self._extract_code_from_response(completion.choices[0].message.content, "openai")
-            # except Exception as e:
-            #     FreeCAD.Console.PrintError(f"OpenAI API Error: {str(e)}\n")
-            #     return f"Error: OpenAI API call failed: {str(e)}"
-            return "Error: OpenAI GPT-4o (Placeholder) not fully implemented yet."
+            if config['type'] == 'openai':
+                response = self._handle_openai(llm_id, system_prompt, user_prompt)
+            elif config['type'] == 'gemini':
+                response = self._handle_gemini(llm_id, system_prompt, user_prompt)
+            elif config['type'] == 'ollama':
+                response = self._handle_ollama(llm_id, system_prompt, user_prompt)
+            else:
+                return f"Error: Unsupported LLM type '{config['type']}'"
 
-        elif llm_id == "ollama":
-            # Placeholder - Implement Ollama call
-            # base_url = self.settings_manager.get_setting("ollama_base_url", "http://localhost:11434")
-            # model_name = self.settings_manager.get_setting("ollama_model_name", "llama3") # Default model
-            # try:
-            #     response = requests.post(
-            #         f"{base_url}/api/generate",
-            #         json={
-            #             "model": model_name,
-            #             "system": system_prompt,
-            #             "prompt": user_prompt,
-            #             "stream": False # For simpler handling initially
-            #         },
-            #         timeout=60 # seconds
-            #     )
-            #     response.raise_for_status() # Check for HTTP errors
-            #     return self._extract_code_from_response(response.json().get("response", ""), "ollama")
-            # except requests.RequestException as e:
-            #     FreeCAD.Console.PrintError(f"Ollama API Error: {str(e)}\n")
-            #     return f"Error connecting to Ollama ({base_url}): {e}"
-            # except Exception as e:
-            #     FreeCAD.Console.PrintError(f"Ollama processing Error: {str(e)}\n")
-            #     return f"Error processing Ollama response: {e}"
-            return "Error: Ollama (Placeholder) not fully implemented yet."
-            
-        else:
-            return f"Error: LLM ID '{llm_id}' not recognized or implemented."
+            return self._extract_code_from_response(response, llm_id)
+
+        except Exception as e:
+            FreeCAD.Console.PrintError(f"LLM Error ({llm_id}): {str(e)}\n")
+            return f"Error: {str(e)}"
