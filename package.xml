@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<package format="1" xmlns="https://wiki.freecad.org/Package_Metadata">
+    <name>AI-CAD Workbench</name>
+    <description>A FreeCAD workbench for interacting with Large Language Models (LLMs) to generate
+        and execute CAD scripts. Allows users to type prompts, submit them to various LLMs via API,
+        and have the LLM generate FreeCAD Python API code.</description>
+    <version>0.1.0</version>
+    <date>2025-05-15</date>
+    <maintainer email="your_email@example.com">Your Name or Username</maintainer>
+    <license file="LICENSE">LGPL-2.1-or-later</license>
+    <url type="repository" branch="main">https://github.com/YourUsername/AIFreeCADWorkbench.git</url>
+    <url type="bugtracker">https://github.com/YourUsername/AIFreeCADWorkbench/issues</url>
+    <icon>Resources/Icons/AIWorkbench.svg</icon>
+
+    <freecad_version>0.20-0.21,1.0</freecad_version>
+    <tags>ai,llm,scripting,automation,cad,generation,gpt,gemini,ollama</tags>
+
+    <content>
+        <workbench>
+            <name>AI-CAD Workbench</name>
+            <icon>Resources/Icons/AIWorkbench.svg</icon>
+            <subdirs>true</subdirs>
+            <modulename>InitGui</modulename>
+        </workbench>
+    </content>
+
+    <dependencies>
+    </dependencies>
+</package>
