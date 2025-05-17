@@ -87,7 +87,12 @@ class ConsoleWidget(QtWidgets.QDockWidget):
         self.input_field = QtWidgets.QTextEdit()
         self.input_field.setPlaceholderText("Enter your prompt here...")
         self.input_field.setAcceptRichText(False)
-        self.input_field.setFixedHeight(60)
+        self.input_field.setMinimumHeight(60)  # Minimum height
+        self.input_field.setMaximumHeight(200)  # Maximum height to prevent excessive expansion
+        self.input_field.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Minimum
+        )
         input_container.addWidget(self.input_field)
         
         # Model selector and send button row
