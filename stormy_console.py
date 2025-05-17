@@ -15,17 +15,25 @@ class ChatMessageWidget(QtWidgets.QWidget):
     def __init__(self, message: str, msg_type: MessageType, parent=None):
         super().__init__(parent)
         layout = QtWidgets.QHBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(4)
+        
+        # Message container for better word wrapping
+        msg_container = QtWidgets.QWidget()
+        msg_layout = QtWidgets.QVBoxLayout()
+        msg_layout.setContentsMargins(0, 0, 0, 0)
+        msg_container.setLayout(msg_layout)
         
         # Message text with prefix based on type
         prefix = "You: " if msg_type == MessageType.USER else "AI: " if msg_type == MessageType.AI else ""
         text = QtWidgets.QLabel(f"{prefix}{message}")
         text.setWordWrap(True)
         text.setTextFormat(QtCore.Qt.PlainText)
-        text.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
-        text.setMinimumHeight(text.sizeHint().height())
-        layout.addWidget(text)
+        text.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        text.setMinimumWidth(100)  # Ensure minimum width for wrapping
+        msg_layout.addWidget(text)
+        
+        layout.addWidget(msg_container, stretch=1)
         
         # Add copy button for AI responses
         if msg_type == MessageType.AI:
@@ -37,9 +45,8 @@ class ChatMessageWidget(QtWidgets.QWidget):
             layout.addWidget(copy_button, alignment=QtCore.Qt.AlignTop)
         
         self.setLayout(layout)
-        self.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
-        self.updateGeometry()
-
+        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        
     def _copy_to_clipboard(self, text: str) -> None:
         """Copy text to clipboard"""
         clipboard = QtWidgets.QApplication.clipboard()
