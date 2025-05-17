@@ -14,8 +14,8 @@ class StormyWorkbench(Workbench):
         import stormy_console  # Import commands when needed
         
         # Create command list
-        self.command_list = ["ShowConsole"]
-        # self.appendToolbar("Stormy Tools", self.command_list)
+        self.command_list = ["ShowAIConsole"]
+        self.appendToolbar("Stormy Tools", self.command_list)
         self.appendMenu("Stormy", self.command_list)
 
     def Activated(self):
