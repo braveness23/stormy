@@ -9,10 +9,14 @@ class ResponseWidget(QtWidgets.QWidget):
         super().__init__(parent)
         layout = QtWidgets.QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
         
         # Response text
         text = QtWidgets.QLabel(response_text)
         text.setWordWrap(True)
+        text.setTextFormat(QtCore.Qt.PlainText)
+        text.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        text.setMinimumHeight(text.sizeHint().height())
         layout.addWidget(text)
         
         # Copy button
@@ -24,7 +28,9 @@ class ResponseWidget(QtWidgets.QWidget):
         layout.addWidget(copy_button, alignment=QtCore.Qt.AlignTop)
         
         self.setLayout(layout)
-    
+        self.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        self.updateGeometry()
+
     def _copy_to_clipboard(self, text: str) -> None:
         """Copy text to clipboard"""
         clipboard = QtWidgets.QApplication.clipboard()
