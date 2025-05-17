@@ -81,31 +81,36 @@ class ConsoleWidget(QtWidgets.QDockWidget):
         layout.addWidget(scroll_area)
         
         # Input area
-        input_layout = QtWidgets.QHBoxLayout()
-        
-        # Model selection dropdown
-        self.model_selector = QtWidgets.QComboBox()
-        for model in ModelType:
-            self.model_selector.addItem(model.value)
-        self.model_selector.setCurrentText(ModelType.MOCK.value)  # Default to Mock model
-        self.model_selector.setToolTip("Select LLM model")
-        input_layout.addWidget(self.model_selector)
-        
-        # Input field and send button
         input_container = QtWidgets.QVBoxLayout()
+        
+        # Input field
         self.input_field = QtWidgets.QTextEdit()
         self.input_field.setPlaceholderText("Enter your prompt here...")
         self.input_field.setAcceptRichText(False)
-        self.input_field.setFixedHeight(60)  # Set a reasonable height for multiple lines
+        self.input_field.setFixedHeight(60)
+        input_container.addWidget(self.input_field)
         
+        # Model selection dropdown
+        model_row = QtWidgets.QHBoxLayout()
+        self.model_selector = QtWidgets.QComboBox()
+        for model in ModelType:
+            self.model_selector.addItem(model.value)
+        self.model_selector.setCurrentText(ModelType.MOCK.value)
+        self.model_selector.setToolTip("Select LLM model")
+        model_row.addWidget(QtWidgets.QLabel("Model:"))
+        model_row.addWidget(self.model_selector)
+        model_row.addStretch()
+        input_container.addLayout(model_row)
+        
+        # Send button row
+        button_row = QtWidgets.QHBoxLayout()
+        button_row.addStretch()
         self.send_button = QtWidgets.QPushButton("Send")
         self.send_button.clicked.connect(self._handle_input)
+        button_row.addWidget(self.send_button)
+        input_container.addLayout(button_row)
         
-        input_container.addWidget(self.input_field)
-        input_layout.addLayout(input_container, stretch=1)
-        input_layout.addWidget(self.send_button)
-        
-        layout.addLayout(input_layout)
+        layout.addLayout(input_container)
         
         main_widget.setLayout(layout)
         self.setWidget(main_widget)
