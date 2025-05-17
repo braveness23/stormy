@@ -1,6 +1,34 @@
 import FreeCADGui as Gui
-from PySide2 import QtWidgets, QtCore
+from PySide2 import QtWidgets, QtCore, QtGui
 import os
+
+class ResponseWidget(QtWidgets.QWidget):
+    """Widget to display AI response with a copy button"""
+    
+    def __init__(self, response_text: str, parent=None):
+        super().__init__(parent)
+        layout = QtWidgets.QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Response text
+        text = QtWidgets.QLabel(response_text)
+        text.setWordWrap(True)
+        layout.addWidget(text)
+        
+        # Copy button
+        copy_button = QtWidgets.QPushButton()
+        copy_button.setIcon(QtGui.QIcon(os.path.join(os.path.dirname(__file__), "resources", "copy_icon.svg")))
+        copy_button.setToolTip("Copy response to clipboard")
+        copy_button.setFixedSize(20, 20)
+        copy_button.clicked.connect(lambda: self._copy_to_clipboard(response_text))
+        layout.addWidget(copy_button, alignment=QtCore.Qt.AlignTop)
+        
+        self.setLayout(layout)
+    
+    def _copy_to_clipboard(self, text: str) -> None:
+        """Copy text to clipboard"""
+        clipboard = QtWidgets.QApplication.clipboard()
+        clipboard.setText(text)
 
 class ConsoleWidget(QtWidgets.QDockWidget):
     """A dockable AI console widget for the Stormy workbench"""
@@ -14,10 +42,14 @@ class ConsoleWidget(QtWidgets.QDockWidget):
         main_widget = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout()
         
-        # Chat history
-        self.chat_history = QtWidgets.QTextEdit()
-        self.chat_history.setReadOnly(True)
-        layout.addWidget(self.chat_history)
+        # Chat history - using QScrollArea for better control
+        scroll_area = QtWidgets.QScrollArea()
+        self.chat_container = QtWidgets.QWidget()
+        self.chat_layout = QtWidgets.QVBoxLayout()
+        self.chat_container.setLayout(self.chat_layout)
+        scroll_area.setWidget(self.chat_container)
+        scroll_area.setWidgetResizable(True)
+        layout.addWidget(scroll_area)
         
         # Input area
         input_layout = QtWidgets.QHBoxLayout()
@@ -46,14 +78,22 @@ class ConsoleWidget(QtWidgets.QDockWidget):
             return
             
         # Display user input
-        self.chat_history.append(f"\nYou: {user_input}")
+        user_label = QtWidgets.QLabel(f"You: {user_input}")
+        user_label.setWordWrap(True)
+        self.chat_layout.addWidget(user_label)
         
-        # Mock AI response
-        response = f"AI: I received your prompt: '{user_input}'. This is a mock response."
-        self.chat_history.append(response)
+        # Mock AI response with copy button
+        response = f"I received your prompt: '{user_input}'. This is a mock response."
+        response_widget = ResponseWidget(f"AI: {response}")
+        self.chat_layout.addWidget(response_widget)
         
         # Clear input field
         self.input_field.clear()
+        
+        # Scroll to bottom
+        QtCore.QTimer.singleShot(0, lambda: self.chat_container.parent().ensureVisible(
+            0, self.chat_container.height() - 1, 0, 0
+        ))
 
 class ShowAIConsole:
     """Command to show the Stormy AI console"""
