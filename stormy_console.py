@@ -1,30 +1,45 @@
 import FreeCADGui as Gui
 from PySide2 import QtWidgets, QtCore, QtGui
 import os
+from enum import Enum, auto
 
-class ResponseWidget(QtWidgets.QWidget):
-    """Widget to display AI response with a copy button"""
+class MessageType(Enum):
+    """Enum for different types of chat messages"""
+    USER = auto()
+    AI = auto()
+    SYSTEM = auto()
+
+class ChatMessageWidget(QtWidgets.QWidget):
+    """Widget to display any type of chat message with optional copy button"""
     
-    def __init__(self, response_text: str, parent=None):
+    def __init__(self, message: str, msg_type: MessageType, parent=None):
         super().__init__(parent)
         layout = QtWidgets.QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
         
-        # Response text
-        text = QtWidgets.QLabel(response_text)
+        # Message text with prefix based on type
+        prefix = "You: " if msg_type == MessageType.USER else "AI: " if msg_type == MessageType.AI else ""
+        text = QtWidgets.QLabel(f"{prefix}{message}")
         text.setWordWrap(True)
+        text.setTextFormat(QtCore.Qt.PlainText)
+        text.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        text.setMinimumHeight(text.sizeHint().height())
         layout.addWidget(text)
         
-        # Copy button
-        copy_button = QtWidgets.QPushButton()
-        copy_button.setIcon(QtGui.QIcon(os.path.join(os.path.dirname(__file__), "resources", "copy_icon.svg")))
-        copy_button.setToolTip("Copy response to clipboard")
-        copy_button.setFixedSize(20, 20)
-        copy_button.clicked.connect(lambda: self._copy_to_clipboard(response_text))
-        layout.addWidget(copy_button, alignment=QtCore.Qt.AlignTop)
+        # Add copy button for AI responses
+        if msg_type == MessageType.AI:
+            copy_button = QtWidgets.QPushButton()
+            copy_button.setIcon(QtGui.QIcon(os.path.join(os.path.dirname(__file__), "resources", "copy_icon.svg")))
+            copy_button.setToolTip("Copy response to clipboard")
+            copy_button.setFixedSize(20, 20)
+            copy_button.clicked.connect(lambda: self._copy_to_clipboard(message))
+            layout.addWidget(copy_button, alignment=QtCore.Qt.AlignTop)
         
         self.setLayout(layout)
-    
+        self.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+        self.updateGeometry()
+
     def _copy_to_clipboard(self, text: str) -> None:
         """Copy text to clipboard"""
         clipboard = QtWidgets.QApplication.clipboard()
@@ -78,14 +93,11 @@ class ConsoleWidget(QtWidgets.QDockWidget):
             return
             
         # Display user input
-        user_label = QtWidgets.QLabel(f"You: {user_input}")
-        user_label.setWordWrap(True)
-        self.chat_layout.addWidget(user_label)
+        self.chat_layout.addWidget(ChatMessageWidget(user_input, MessageType.USER))
         
-        # Mock AI response with copy button
+        # Mock AI response
         response = f"I received your prompt: '{user_input}'. This is a mock response."
-        response_widget = ResponseWidget(f"AI: {response}")
-        self.chat_layout.addWidget(response_widget)
+        self.chat_layout.addWidget(ChatMessageWidget(response, MessageType.AI))
         
         # Clear input field
         self.input_field.clear()
