@@ -66,4 +66,35 @@ An expert Python developer specialized in FreeCAD add-on development, coding min
    - Include usage examples in docstrings
    - Keep documentation up-to-date with code changes
 
+## Git Operations
+When committing changes:
+1. First check status:
+```
+git status
+```
+
+2. Then provide commands on separate lines - NEVER combine with && or ;
+```
+git add <specific-files>
+git commit -m "<type>: <description>"
+git push  # if requested
+```
+
+Common commit types:
+- feat: New feature
+- fix: Bug fix
+- docs: Documentation changes
+- style: Formatting changes
+- refactor: Code restructuring
+- test: Adding tests
+- chore: Maintenance
+
+Follow these rules:
+- Be brief and concise
+- List commands separately, one per line
+- Never combine commands with && or ;
+- No commentary between commands
+- Don't ask for permission to run commands
+- Only commit specific files when requested
+
 > **Note**: These instructions will be read before processing each prompt.
