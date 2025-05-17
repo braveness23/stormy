@@ -9,6 +9,13 @@ class MessageType(Enum):
     AI = auto()
     SYSTEM = auto()
 
+class ModelType(Enum):
+    """Enum for different LLM models"""
+    GPT4O = "GPT-4o"
+    GPT41 = "GPT-4.1"
+    CLAUDE35 = "Claude 3.5 Sonnet"
+    MOCK = "Mock"
+
 class ChatMessageWidget(QtWidgets.QWidget):
     """Widget to display any type of chat message with optional copy button"""
     
@@ -75,6 +82,17 @@ class ConsoleWidget(QtWidgets.QDockWidget):
         
         # Input area
         input_layout = QtWidgets.QHBoxLayout()
+        
+        # Model selection dropdown
+        self.model_selector = QtWidgets.QComboBox()
+        for model in ModelType:
+            self.model_selector.addItem(model.value)
+        self.model_selector.setCurrentText(ModelType.MOCK.value)  # Default to Mock model
+        self.model_selector.setToolTip("Select LLM model")
+        input_layout.addWidget(self.model_selector)
+        
+        # Input field and send button
+        input_container = QtWidgets.QVBoxLayout()
         self.input_field = QtWidgets.QTextEdit()
         self.input_field.setPlaceholderText("Enter your prompt here...")
         self.input_field.setAcceptRichText(False)
@@ -83,8 +101,10 @@ class ConsoleWidget(QtWidgets.QDockWidget):
         self.send_button = QtWidgets.QPushButton("Send")
         self.send_button.clicked.connect(self._handle_input)
         
-        input_layout.addWidget(self.input_field)
+        input_container.addWidget(self.input_field)
+        input_layout.addLayout(input_container, stretch=1)
         input_layout.addWidget(self.send_button)
+        
         layout.addLayout(input_layout)
         
         main_widget.setLayout(layout)
@@ -95,7 +115,7 @@ class ConsoleWidget(QtWidgets.QDockWidget):
                         QtWidgets.QDockWidget.DockWidgetClosable)
 
     def _handle_input(self):
-        """Handle user input and generate mock response"""
+        """Handle user input and generate response using selected model"""
         user_input = self.input_field.toPlainText().strip()
         if not user_input:
             return
@@ -103,8 +123,15 @@ class ConsoleWidget(QtWidgets.QDockWidget):
         # Display user input
         self.chat_layout.addWidget(ChatMessageWidget(user_input, MessageType.USER))
         
-        # Mock AI response
-        response = f"I received your prompt: '{user_input}'. This is a mock response."
+        # Get selected model
+        selected_model = self.model_selector.currentText()
+        
+        # Generate response based on model
+        if selected_model == ModelType.MOCK.value:
+            response = f"[{selected_model}] I received your prompt: '{user_input}'. This is a mock response."
+        else:
+            response = f"[{selected_model}] This is a placeholder response. Real {selected_model} integration coming soon."
+            
         self.chat_layout.addWidget(ChatMessageWidget(response, MessageType.AI))
         
         # Clear input field
