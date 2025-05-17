@@ -7,7 +7,7 @@ When asked to commit code changes, I will:
 git status
 ```
 
-2. Then provide ALL necessary commands separately:
+2. Then provide ALL necessary commands together on separate lines (do not combine using &&):
 ```
 git add <specific-files>  # for specific files
 git commit -m "<type>: <description>"
