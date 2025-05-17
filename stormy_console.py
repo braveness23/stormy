@@ -102,10 +102,11 @@ class ConsoleWidget(QtWidgets.QDockWidget):
         # Clear input field
         self.input_field.clear()
         
-        # Scroll to bottom
-        QtCore.QTimer.singleShot(0, lambda: self.chat_container.parent().ensureVisible(
-            0, self.chat_container.height() - 1, 0, 0
-        ))
+        # Scroll to bottom using proper scroll area method
+        scroll_area = self.chat_container.parent()
+        if isinstance(scroll_area, QtWidgets.QScrollArea):
+            vsb = scroll_area.verticalScrollBar()
+            vsb.setValue(vsb.maximum())
 
 class ShowAIConsole:
     """Command to show the Stormy AI console"""
