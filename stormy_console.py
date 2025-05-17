@@ -75,9 +75,10 @@ class ConsoleWidget(QtWidgets.QDockWidget):
         
         # Input area
         input_layout = QtWidgets.QHBoxLayout()
-        self.input_field = QtWidgets.QLineEdit()
+        self.input_field = QtWidgets.QTextEdit()
         self.input_field.setPlaceholderText("Enter your prompt here...")
-        self.input_field.returnPressed.connect(self._handle_input)
+        self.input_field.setAcceptRichText(False)
+        self.input_field.setFixedHeight(60)  # Set a reasonable height for multiple lines
         
         self.send_button = QtWidgets.QPushButton("Send")
         self.send_button.clicked.connect(self._handle_input)
@@ -95,7 +96,7 @@ class ConsoleWidget(QtWidgets.QDockWidget):
 
     def _handle_input(self):
         """Handle user input and generate mock response"""
-        user_input = self.input_field.text().strip()
+        user_input = self.input_field.toPlainText().strip()
         if not user_input:
             return
             
